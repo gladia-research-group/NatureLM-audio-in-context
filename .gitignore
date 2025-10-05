@@ -179,3 +179,7 @@ NatureLM/wandb/
 out/
 wandb/
 logs/
+
+.hf_cache/
+*.slurm
+results/

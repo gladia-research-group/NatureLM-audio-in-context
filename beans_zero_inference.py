@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 from beans_zero.evaluate import compute_metrics
 from datasets import load_dataset, load_from_disk
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from tqdm import tqdm
 
 from NatureLM.config import Config
@@ -110,67 +110,127 @@ def main(
 
     # extract dataset configs
     components = beans_cfg["metadata"]["components"]
+
+    extended_controls = cfg.extended
+
+    datasets_to_keep = extended_controls.datasets
+    if datasets_to_keep:
+        components = [c for c in components if c["name"] in datasets_to_keep]
+        print(f"Keeping {len(components)} datasets for evaluation: {[c['name'] for c in components]}")
+
     ds_names = [d["name"] for d in components]
     ds_tasks = [d["task"] for d in components]
     ds_labels = [d["labels"] for d in components]
     ds_max_length_seconds = [d["max_duration"] for d in components]
 
-    outputs = {"prediction": [], "label": [], "id": [], "dataset_name": []}
+    classes = []
+    if extended_controls.species:
+        classes = [(s["name"], s["description"]) for s in extended_controls.species]
 
-    for i, dataset_name in enumerate(ds_names):
-        subset = ds.select(np.where(np.array(ds["dataset_name"]) == dataset_name)[0])
-        print(f"\n======Running inference on {dataset_name} with {len(subset)} samples======")
-        print(f"Task: {ds_tasks[i]}")
-        if ds_labels[i] is not None:
-            print(f"Num labels: {len(ds_labels[i])}")
+    lora_scales = extended_controls.lora_scales
 
-        max_length_seconds = ds_max_length_seconds[i]
-        if max_length_seconds is None:
-            max_length_seconds = DEFAULT_MAX_LENGTH_SECONDS
-        print(f"Max duration: {max_length_seconds}")
+    queries = extended_controls.queries
+    if not queries:
+        queries = [None]
 
-        processor = NatureLMAudioEvalProcessor(
-            max_length_seconds=max_length_seconds,
-            dataset_name=dataset_name,
-            task=ds_tasks[i],
-            true_labels=ds_labels[i] or [],
-        )
+    for lora_scale in lora_scales:
+        print(f"\n===== Running for LoRA scale {lora_scale} =====")
+        for query_idx, query in enumerate(queries):
+            outputs = {"prediction": [], "label": [], "id": [], "dataset_name": [], "prompt": [], "lora_scale": []}
 
-        dl = DataLoader(
-            NatureLMInferenceDataset(subset, processor),
-            batch_size=batch_size,
-            shuffle=False,
-            pin_memory=True,
-            drop_last=False,
-            collate_fn=collater,
-            num_workers=num_workers,
-        )
+            for i, dataset_name in enumerate(ds_names):
+                subset = ds.select(np.where(np.array(ds["dataset_name"]) == dataset_name)[0])
 
-        for batch in tqdm(dl, total=len(dl)):
-            batch = move_to_device(batch, DEVICE)
+                subsets = []
+                for class_name, _ in classes:
+                    subset = ds.select(np.where(
+                        np.logical_and(
+                            np.array(ds["dataset_name"]) == dataset_name,
+                            np.array(ds["output"]) == class_name
+                        )
+                    )[0])
+                    subsets.append(subset)
+                    print(f"{len(subset)} samples for class '{class_name}' in dataset '{dataset_name}'")
+                if subsets:
+                    subset = ConcatDataset(subsets)
 
-            output = model.generate(batch, cfg.generate, batch["prompt"])
-            outputs["prediction"].extend(output)
-            outputs["id"].extend(batch["id"])
-            outputs["dataset_name"].extend([dataset_name] * len(batch["id"]))
-            outputs["label"].extend(batch["label"])
+                print(f"\n======Running inference on {dataset_name} with {len(subset)} samples======")
+                print(f"Task: {ds_tasks[i]}")
+                if ds_labels[i] is not None:
+                    print(f"Num labels: {len(ds_labels[i])}")
 
-        # save intermediate results as dataframe
-        df = pd.DataFrame(outputs)
-        df.to_json(str(output_path), orient="records", lines=True)
-        print(f"Saved intermediate results to {output_path}")
+                max_length_seconds = ds_max_length_seconds[i]
+                if max_length_seconds is None:
+                    max_length_seconds = DEFAULT_MAX_LENGTH_SECONDS
+                print(f"Max duration: {max_length_seconds}")
 
-    # run evaluation
-    print("Running evaluation")
-    all_metrics = compute_metrics(df, verbose=True)
+                processor = NatureLMAudioEvalProcessor(
+                    max_length_seconds=max_length_seconds,
+                    dataset_name=dataset_name,
+                    task=ds_tasks[i],
+                    true_labels=ds_labels[i] or [],
+                )
 
-    # save final results, replace '.jsonl' with _metrics.json
-    metrics_path = str(output_path).replace(".jsonl", "_metrics.json")
-    with open(metrics_path, "w") as f:
-        json.dump(all_metrics, f, indent=4)
+                dl = DataLoader(
+                    NatureLMInferenceDataset(subset, processor),
+                    batch_size=batch_size,
+                    shuffle=False,
+                    pin_memory=True,
+                    drop_last=False,
+                    collate_fn=collater,
+                    num_workers=num_workers,
+                )
 
-    print(f"Saved evaluation results to {metrics_path}")
-    print("Evaluation complete!")
+                for batch in tqdm(dl, total=len(dl)):
+                    batch = move_to_device(batch, DEVICE)
+
+                    if query:
+                        prompts = []
+                        for _ in batch["prompt"]:
+                            q = query
+                            if processor.audio_token_placeholder.strip() not in q:
+                                q = processor.audio_token_placeholder + q
+                            randomize = "{randomize}" in q
+                            q.replace("{randomize}", "")
+                            if randomize:
+                                np.random.shuffle(classes)
+                            if "{species_list}" in q:
+                                species_list = ", ".join([n for n, _ in classes])
+                                q = q.replace("{species_list}", species_list)
+                            if "{examples}" in q:
+                                examples = "\n".join(
+                                    [f"Audio: [{descrption}]\nLabel: {name}" for name, descrption in classes]
+                                )
+                                q = q.replace("{examples}", examples)
+                            prompts.append(processor.prompt_template.format(prompt=q))
+                        batch["prompt"] = prompts
+
+                    output = model.generate(batch, cfg.generate, batch["prompt"], lora_scale=lora_scale)
+                    outputs["prediction"].extend(output)
+                    outputs["id"].extend(batch["id"])
+                    outputs["dataset_name"].extend([dataset_name] * len(batch["id"]))
+                    outputs["label"].extend(batch["label"])
+                    outputs["prompt"].extend(batch["prompt"])
+                    outputs["lora_scale"].extend([lora_scale] * len(batch["id"]))
+
+                # save intermediate results as dataframe
+                suffix = f"{dataset_name}_query{query_idx}_lora{int(lora_scale*100):03d}"
+                output_file = Path(output_path).with_name(f"{Path(output_path).stem}_{suffix}.jsonl")
+                df = pd.DataFrame(outputs)
+                df.to_json(str(output_file), orient="records", lines=True)
+                print(f"Saved intermediate results to {output_file}")
+
+            # # run evaluation
+            # print("Running evaluation")
+            # all_metrics = compute_metrics(df, verbose=True)
+
+            # # save final results, replace '.jsonl' with _metrics.json
+            # metrics_path = str(output_path).replace(".jsonl", "_metrics.json")
+            # with open(metrics_path, "w") as f:
+            #     json.dump(all_metrics, f, indent=4)
+
+            # print(f"Saved evaluation results to {metrics_path}")
+            print("Execution complete for this combination.\n")
 
 
 if __name__ == "__main__":
