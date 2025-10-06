@@ -136,9 +136,9 @@ def main(
     for lora_scale in lora_scales:
         print(f"\n===== Running for LoRA scale {lora_scale} =====")
         for query_idx, query in enumerate(queries):
-            outputs = {"prediction": [], "label": [], "id": [], "dataset_name": [], "prompt": [], "lora_scale": []}
-
             for i, dataset_name in enumerate(ds_names):
+                outputs = {"prediction": [], "label": [], "id": [], "dataset_name": [], "prompt": [], "lora_scale": []}
+                
                 subset = ds.select(np.where(np.array(ds["dataset_name"]) == dataset_name)[0])
 
                 subsets = []
