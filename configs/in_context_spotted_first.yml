@@ -62,13 +62,17 @@ generate:
 
 extended:
   datasets:
-    - "watkins"
-    - "cbi"
+    - "unseen-family-cmn"
 
   queries:
-    - "What is the common name for the focal species in the audio?"
-    - "What is the scientific name for the focal species in the audio?"
-    - "Identify the focal species in the audio and provide its taxonomic name followed by a colon and its common name."
+    - |
+      Identify the common name for the focal species in the audio.
+      Output exactly one of: {species_list}
+
+      {examples}
+
+      Audio: <Audio><AudioHere></Audio>
+      Label:
 
   lora_scales:
     - 0.0
@@ -82,3 +86,9 @@ extended:
     - 0.8
     - 0.9
     - 1.0
+
+  species:
+    - name: "Spotted Elachura"
+      description: "[bird-like chirping and trilling]"
+    - name: "Dall's Porpoise"
+      description: "[high-pitched clicks and whistles]"

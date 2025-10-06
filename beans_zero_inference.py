@@ -188,21 +188,26 @@ def main(
                         prompts = []
                         for _ in batch["prompt"]:
                             q = query
-                            if processor.audio_token_placeholder.strip() not in q:
-                                q = processor.audio_token_placeholder + q
+
                             randomize = "{randomize}" in q
-                            q.replace("{randomize}", "")
+                            q = q.replace("{randomize}", "")
                             if randomize:
                                 np.random.shuffle(classes)
+
                             if "{species_list}" in q:
                                 species_list = ", ".join([n for n, _ in classes])
                                 q = q.replace("{species_list}", species_list)
+                            
                             if "{examples}" in q:
-                                examples = "\n".join(
-                                    [f"Audio: [{descrption}]\nLabel: {name}" for name, descrption in classes]
+                                examples = "\n\n".join(
+                                    [f"Audio: {description}\nLabel: {name}" for name, description in classes]
                                 )
                                 q = q.replace("{examples}", examples)
-                            prompts.append(processor.prompt_template.format(prompt=q))
+
+                            if processor.audio_token_placeholder.strip() not in q:
+                                q = processor.audio_token_placeholder + q
+
+                            prompts.append(processor.prompt_template.format(prompt=q.strip()))
                         batch["prompt"] = prompts
 
                     output = model.generate(batch, cfg.generate, batch["prompt"], lora_scale=lora_scale)
