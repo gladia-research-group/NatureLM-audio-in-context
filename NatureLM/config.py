@@ -198,6 +198,7 @@ class ExtendedConfig(BaseModel, extra="forbid", validate_assignment=True):
     queries: List[str] = []
     lora_scales: List[float] = [1.0]
     species: List[Dict[str, Any]] = []
+    top_k_species: int = None
 
 
 class Config(BaseSettings, extra="forbid", validate_assignment=True):
