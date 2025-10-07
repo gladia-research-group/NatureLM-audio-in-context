@@ -3,11 +3,14 @@ import json
 import pandas as pd
 import seaborn as sns
 
-folders_list = file_list = [
+folders_list =  [
     "results\\in_context_dalls_first\\",
     "results\\in_context_spotted_first\\",
     "results\\in_context_random\\",
-    "results\\just_list_random\\"
+    "results\\just_list_random\\",
+    "results\\just_list_random_3\\",
+    "results\\just_list_random_var\\",
+    "results\\just_list_random_var_3\\",
 ]
 
 outputs_loaded = dict()
@@ -51,7 +54,7 @@ plt.rcParams.update(
 )
 
 marker_kwargs = dict(marker='o', markersize=4, markerfacecolor='white', markeredgewidth=1.5)
-colors = sns.color_palette("Set2", n_colors=4)
+colors = sns.color_palette("Set2", n_colors=len(folders_list))
 # Golden ratio proportions for aesthetically pleasing layout
 golden_ratio = 1.618
 width = 20
