@@ -9,8 +9,10 @@ folders_list =  [
     "results\\in_context_random\\",
     "results\\just_list_random\\",
     "results\\just_list_random_3\\",
-    "results\\just_list_random_var\\",
-    "results\\just_list_random_var_3\\",
+    "results\\just_list_random_all\\",
+    "results\\just_list_random_trainver\\",
+    "results\\just_list_random_trainver_3\\",
+    "results\\just_list_random_trainver_all\\",
 ]
 
 outputs_loaded = dict()
