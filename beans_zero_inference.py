@@ -123,9 +123,24 @@ def main(
     ds_labels = [d["labels"] for d in components]
     ds_max_length_seconds = [d["max_duration"] for d in components]
 
+    assert not (extended_controls.species and extended_controls.top_k_species), "Cannot specify both species and top_k_species"
+
     classes = []
     if extended_controls.species:
         classes = [(s["name"], s["description"]) for s in extended_controls.species]
+    if extended_controls.top_k_species:
+        assert len(datasets_to_keep) == 1, "When using top_k_species, must specify exactly one dataset to run on"
+        # get top k classes from the specified dataset
+        classes_count = {}
+        dataset_name = datasets_to_keep[0]
+        for item in ds.select(np.where(np.array(ds["dataset_name"]) == dataset_name)[0]):
+            if item["dataset_name"] == datasets_to_keep[0]:
+                label = item["output"]
+                classes_count[label] = classes_count.get(label, 0) + 1
+        classes_count = list(classes_count.items())
+        classes_count.sort(key=lambda x: x[1], reverse=True)
+        classes = [(label, "") for label, _ in classes_count[: extended_controls.top_k_species]]
+
 
     lora_scales = extended_controls.lora_scales
 
