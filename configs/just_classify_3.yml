@@ -80,4 +80,4 @@ extended:
     - 0.8
     - 0.9
     - 1.0
-  top_k_species: 2
+  top_k_species: 3

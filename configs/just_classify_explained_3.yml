@@ -66,7 +66,7 @@ extended:
 
   queries:
     - |
-      Identify the common name for the focal species in the audio.
+      Identify the common name for the focal species in the audio, only print the common name and nothing else.
 
   lora_scales:
     - 0.0
@@ -80,4 +80,4 @@ extended:
     - 0.8
     - 0.9
     - 1.0
-  top_k_species: 2
+  top_k_species: 3
