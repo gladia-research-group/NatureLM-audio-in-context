@@ -1,4 +1,9 @@
-# NatureLM-audio: an Audio-Language Foundation Model for Bioacoustics
+# Model Merging Enables In-Context Learning for Bioacoustics Foundation Models
+
+This repository contains the official code and configuration files for the experiments described in  
+[*Model Merging Enables In-Context Learning for Bioacoustics Foundation Models*](https://openreview.net/forum?id=8YmupGWwvl).
+
+It extends [NatureLM-audio](https://github.com/earthspecies/NatureLM-audio) with additional configuration-driven functionality for analyzing prompt variation and in-context learning behavior on [BEANS-Zero](https://huggingface.co/datasets/EarthSpeciesProject/BEANS-Zero).
 
 ![](assets/naturelm-audio-overiew.png)
 
@@ -7,6 +12,32 @@ NatureLM-audio is a multimodal audio-language foundation model designed for bioa
 > [NatureLM-audio: an Audio-Language Foundation Model for Bioacoustics](https://openreview.net/forum?id=hJVdwBpWjt)
 > David Robinson, Marius Miron, Masato Hagiwara, Olivier Pietquin
 > ICLR 2025
+
+## 🧩 Extended Functionality and Config Options
+All new features are implemented through the `extended` section in the configuration files (`.yml`).
+These options control dataset selection, prompt construction, and LoRA scaling for reproducible in-context learning experiments.
+
+| Key                 | Description                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`datasets`**      | Select specific datasets for inference (instead of using the full BEANS-Zero mix).                                                                                                                                                                                                                                                                           |
+| **`lora_scales`**   | Define the LoRA scales to evaluate; each prompt is tested at all specified scales.                                                                                                                                                                                                                                                                          |
+| **`species`** | Manually select target species to test, with names and short sound descriptions.<br><br>`species:`<br>`  - name: "Spotted Elachura"`<br>`    description: "[bird-like chirping and trilling]"`<br>`  - name: "Dall's Porpoise"`<br>`    description: "[high-pitched clicks and whistles]"` |
+| **`top_k_species`** | Automatically select the top *k* most frequent species from a dataset.<br>Mutually exclusive with `species`, and only one dataset can be selected.                                                                                                                                                                                    |
+| **`queries`**       | Override BEANS-Zero’s default prompts and test multiple prompts per sample in a single run. Supports the following inline flags:<br>• `{species_list}` → inserts the list of retained species.<br>• `{examples}` → inserts name + description pairs from `species`.<br>• `{randomize}` → shuffles the order of species in `{species_list}` and `{examples}`. |
+
+For example usage, check out the `configs/` folder.
+
+
+## 🧪 Reproducing Our Experiments
+
+Each configuration file in `configs/` corresponds to one experimental setup from the paper.  
+Run an experiment with:
+
+```bash
+uv run naturelm infer --cfg-path configs/inference_incontext.yml
+```
+---
+The following sections are preserved from the original [NatureLM-audio](https://github.com/earthspecies/NatureLM-audio) README for reference.
 
 ## Requirements
 
@@ -24,7 +55,7 @@ Clone the repository and install the dependencies:
 ```bash
 git clone https://github.com/earthspecies/NatureLM-audio.git
 cd NatureLM-audio
-uv sync
+uv sync --group gpu
 # If there's no gpu available or you are on MacOS then do
 uv sync --no-group gpu
 ```
@@ -108,7 +139,19 @@ print(results)
 
 ## Citation
 
-If you use NatureLM-audio or build upon it, please cite:
+If you use this repository or build upon it, please cite:
+
+```bibtex
+@inproceedings{marincione2025modelmerging,
+  title     = {Model Merging Enables In-Context Learning for Bioacoustics Foundation Models},
+  author    = {Davide Marincione, Donato Crisostomi, Roberto Dessi, Emanuele Rodolà, Emanuele Rossi},
+  booktitle = {Proceedings of the NeurIPS 2025 Workshop on AI for Animal Communication (AIForAnimalComms)},
+  year      = {2025},
+  url       = {https://openreview.net/forum?id=8YmupGWwvl}
+}
+```
+
+and NatureLM's original paper,
 
 ```bibtex
 @inproceedings{robinson2025naturelm,
